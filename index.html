@@ -127,15 +127,15 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      flex: 0 0 auto;
+      flex: 1 1 0;          /* 남은 공간을 최대한 차지 */
       font-weight: 900;
       color: #1e3a8a;
       text-align: center;
       word-break: keep-all;
       overflow-wrap: anywhere;
       line-height: 1.0;
-      /* 컨테이너 높이의 45%를 기본 크기로, 최소 16px */
-      font-size: clamp(16px, 10cqh, 18cqw);
+      /* 셀 높이의 ~55%, 너비의 ~80% 중 작은 값으로 꽉 채움 */
+      font-size: clamp(18px, 13cqh, 22cqw);
     }
 
     .kiosk-teacher {
@@ -143,20 +143,20 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      flex: 0 0 auto;
+      flex: 0 0 auto;       /* 교사명은 고정 크기 */
       font-weight: 600;
       color: #374151;
       text-align: center;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      line-height: 1.0;
-      font-size: clamp(12px, 5cqh, 10cqw);
+      line-height: 1.1;
+      font-size: clamp(11px, 4cqh, 8cqw);
     }
 
     .kiosk-divider {
       width: 80%;
       border-top: 1.5px solid rgba(0,0,0,0.18);
-      margin: 4px 0;
+      margin: 3px 0;
       flex-shrink: 0;
     }
 
