@@ -757,16 +757,18 @@
                       class="border border-gray-300 p-0"
                       :class="[colBodyBg(cls), getCellBgClass(row.period, cls)]">
 
-                    <!-- 관리자 편집 모드 -->
+                    <!-- 관리자 편집 모드: 글자 크게 -->
                     <div v-if="isAdminMode && !isKioskMode" class="cell-editor-wrap">
-                      <input class="cell-editor-input font-extrabold text-lg text-blue-900"
+                      <input class="cell-editor-input font-extrabold text-blue-900"
+                             style="font-size: clamp(1rem, 2.2vw, 2rem); line-height:1.1;"
                              :data-period="row.period" :data-class="cls" data-part="subject"
                              :value="getSubject(grid[row.period] && grid[row.period][cls])"
                              @input="(e) => onSubjectInput(row.period, cls, e.target.value)"
                              @keydown.enter.prevent="handleEnter(row.period, cls, 'subject')"
                              placeholder="과목명" />
                       <div class="cell-divider"></div>
-                      <input class="cell-editor-input font-semibold text-sm text-gray-700"
+                      <input class="cell-editor-input font-semibold text-gray-700"
+                             style="font-size: clamp(0.75rem, 1.1vw, 1rem);"
                              :data-period="row.period" :data-class="cls" data-part="teacher"
                              :value="getTeacher(grid[row.period] && grid[row.period][cls])"
                              @input="(e) => onTeacherInput(row.period, cls, e.target.value)"
@@ -1129,9 +1131,15 @@
       function parseCell(v) {
         const s = String(v || '');
         if (!s.trim()) return { subject: '', teacher: '' };
+        // \n 기준 분리 (정상 저장 형식)
         if (s.includes('\n')) {
           const parts = s.split('\n');
           return { subject: (parts[0]||'').trim(), teacher: parts.slice(1).join(' ').trim() };
+        }
+        // "과목명(교사명)" 패턴 자동 인식 → 분리
+        const bracketMatch = s.match(/^(.+?)\(([^)]+)\)\s*$/);
+        if (bracketMatch) {
+          return { subject: bracketMatch[1].trim(), teacher: bracketMatch[2].trim() };
         }
         return { subject: s.trim(), teacher: '' };
       }
