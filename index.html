@@ -1,0 +1,1597 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>수업시간표 v3.1</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <style>
+    html, body { height: 100%; }
+    body { margin: 0; overflow: hidden; }
+
+    .slide-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .media-cover {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .media-contain {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .youtube-iframe {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      border: 0;
+    }
+
+    .youtube-shorts-wrapper {
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+      width: 100% !important; height: 100% !important;
+      overflow: hidden !important;
+      background: #000;
+      margin: 0 !important; padding: 0 !important;
+    }
+    .youtube-shorts-wrapper iframe {
+      position: absolute !important;
+      top: 50% !important; left: 50% !important;
+      transform: translate(-50%, -50%) scale(1.5) !important;
+      transform-origin: center center !important;
+      width: 100% !important; height: 100% !important;
+      min-width: 100% !important; min-height: 100% !important;
+      max-width: none !important; max-height: none !important;
+      border: 0 !important; margin: 0 !important; padding: 0 !important;
+    }
+
+    .gdrive-iframe {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      border: 0;
+    }
+
+    th, td { vertical-align: middle; }
+
+    .fade { animation: fadeIn 250ms ease-out; }
+    @keyframes fadeIn { from {opacity:.25} to {opacity:1} }
+
+    .cell-text{
+      white-space: normal;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      line-height: 1.1;
+    }
+
+    .cell-divider{
+      width: 100%;
+      border-top: 1px solid rgba(0,0,0,.14);
+      margin: 6px 0;
+    }
+
+    .cell-editor-wrap{
+      width:100%; height:100%;
+      display:flex; flex-direction:column;
+      justify-content:center; align-items:stretch;
+      padding: 6px; box-sizing: border-box;
+    }
+    .cell-editor-input{
+      width:100%; border:0; outline:none;
+      background:transparent; text-align:center;
+      padding: 2px 4px; line-height: 1.1;
+    }
+    .cell-editor-input:focus{
+      background: rgba(59,130,246,.10);
+      border-radius: 6px;
+    }
+
+    .scroll-area { overflow: auto; }
+
+    /* ──────────────────────────────────────────────────────
+       [FIX 1] 키오스크 모드: 과목명/교사명 셀을 꽉 채우는 스타일
+       container-type을 활용한 cqb(container query block) 단위
+    ────────────────────────────────────────────────────── */
+    .kiosk-cell {
+      container-type: size;   /* 부모 셀을 컨테이너로 선언 */
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 6px;
+      box-sizing: border-box;
+    }
+
+    .kiosk-subject {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      flex: 0 0 auto;
+      font-weight: 900;
+      color: #1e3a8a;
+      text-align: center;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      line-height: 1.0;
+      /* 컨테이너 높이의 45%를 기본 크기로, 최소 16px */
+      font-size: clamp(16px, 10cqh, 18cqw);
+    }
+
+    .kiosk-teacher {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      flex: 0 0 auto;
+      font-weight: 600;
+      color: #374151;
+      text-align: center;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      line-height: 1.0;
+      font-size: clamp(12px, 5cqh, 10cqw);
+    }
+
+    .kiosk-divider {
+      width: 80%;
+      border-top: 1.5px solid rgba(0,0,0,0.18);
+      margin: 4px 0;
+      flex-shrink: 0;
+    }
+
+    /* login */
+    .login-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .login-box {
+      background: white; padding: 3rem; border-radius: 1rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center; max-width: 400px; width: 90%;
+    }
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .modal-content {
+      background: white; border-radius: 1rem;
+      padding: 2rem; max-width: 600px; width: 90%;
+      max-height: 80vh; overflow-y: auto;
+    }
+
+    .password-modal-content {
+      background: white; border-radius: 1rem;
+      padding: 2.5rem; max-width: 360px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+
+    .password-input {
+      width: 100%;
+      border: 2px solid #e5e7eb; border-radius: 0.5rem;
+      padding: 0.75rem 1rem; font-size: 1.5rem;
+      text-align: center; letter-spacing: 0.3rem;
+      outline: none; transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+    .password-input:focus { border-color: #6366f1; }
+    .password-input.error { border-color: #ef4444; animation: shake 0.4s; }
+
+    .firebase-warning {
+      position: fixed; top: 20px; right: 20px;
+      background: #fef3c7; border: 2px solid #f59e0b;
+      padding: 1.5rem; border-radius: 0.75rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      max-width: 400px; z-index: 10000;
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+
+    .fullscreen-exit-button {
+      position: fixed; top: 20px; right: 20px; z-index: 10000;
+      background: rgba(0,0,0,0.7); color: white;
+      border: 2px solid rgba(255,255,255,0.3);
+      padding: 12px 20px; border-radius: 8px;
+      font-size: 16px; font-weight: bold; cursor: pointer;
+      transition: all 0.3s; backdrop-filter: blur(10px);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .fullscreen-exit-button:hover {
+      background: rgba(220,38,38,0.9);
+      border-color: rgba(255,255,255,0.8);
+      transform: scale(1.05);
+    }
+
+    /* ──────────────────────────────────────────────────────
+       [FIX 3] 실시간 업데이트 배지 - 일반 모드 / 뷰어 모드 공통
+    ────────────────────────────────────────────────────── */
+    .realtime-badge {
+      position: fixed; bottom: 20px; right: 20px;
+      background: rgba(16,185,129,0.9); color: white;
+      padding: 8px 16px; border-radius: 20px;
+      font-size: 12px; font-weight: bold;
+      display: flex; align-items: center; gap: 6px;
+      z-index: 1000; backdrop-filter: blur(10px);
+      animation: pulse 2s infinite;
+    }
+    .realtime-badge.viewer {
+      background: rgba(99,102,241,0.9);
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* ──────────────────────────────────────────────────────
+       [FIX 2] 관리자 입력 실시간 반영 - 플래시 효과
+    ────────────────────────────────────────────────────── */
+    .cell-updated {
+      animation: cellFlash 0.5s ease-out;
+    }
+    @keyframes cellFlash {
+      0% { background-color: rgba(99,102,241,0.25); }
+      100% { background-color: transparent; }
+    }
+
+    /* 사용설명서 */
+    .manual-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 9999;
+      animation: fadeIn 0.2s ease-out;
+    }
+    .manual-sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0;
+      width: 500px; max-width: 90vw;
+      background: white; box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+      display: flex; flex-direction: column;
+      animation: slideInLeft 0.3s ease-out; z-index: 10000;
+    }
+    @keyframes slideInLeft {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(0); }
+    }
+    .manual-header {
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; display: flex; justify-content: space-between;
+      align-items: center; flex-shrink: 0;
+    }
+    .manual-body { flex: 1; overflow-y: auto; padding: 2rem; }
+    .manual-body h2 { font-size:1.5rem; font-weight:bold; margin-top:2rem; margin-bottom:1rem; color:#1f2937; border-bottom:2px solid #667eea; padding-bottom:0.5rem; }
+    .manual-body h2:first-child { margin-top:0; }
+    .manual-body h3 { font-size:1.25rem; font-weight:bold; margin-top:1.5rem; margin-bottom:0.75rem; color:#374151; }
+    .manual-body h4 { font-size:1.1rem; font-weight:bold; margin-top:1rem; margin-bottom:0.5rem; color:#4b5563; }
+    .manual-body p { margin-bottom:0.75rem; line-height:1.6; color:#374151; }
+    .manual-body ul, .manual-body ol { margin-left:1.5rem; margin-bottom:1rem; }
+    .manual-body li { margin-bottom:0.5rem; line-height:1.6; }
+    .manual-body code { background:#f3f4f6; padding:0.2rem 0.4rem; border-radius:0.25rem; font-family:monospace; font-size:0.9em; }
+    .manual-body pre { background:#1f2937; color:#f9fafb; padding:1rem; border-radius:0.5rem; overflow-x:auto; margin-bottom:1rem; }
+    .manual-body pre code { background:transparent; color:inherit; padding:0; }
+    .manual-section { background:#f9fafb; border-left:4px solid #667eea; padding:1rem; margin-bottom:1rem; border-radius:0.25rem; }
+    .manual-tip { background:#dbeafe; border-left:4px solid #3b82f6; padding:1rem; margin-bottom:1rem; border-radius:0.25rem; }
+    .manual-warning { background:#fef3c7; border-left:4px solid #f59e0b; padding:1rem; margin-bottom:1rem; border-radius:0.25rem; }
+    .manual-success { background:#d1fae5; border-left:4px solid #10b981; padding:1rem; margin-bottom:1rem; border-radius:0.25rem; }
+    .manual-table { width:100%; border-collapse:collapse; margin-bottom:1rem; }
+    .manual-table th, .manual-table td { border:1px solid #e5e7eb; padding:0.5rem; text-align:left; }
+    .manual-table th { background:#f3f4f6; font-weight:bold; }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+<div id="app" class="w-screen h-screen flex">
+
+  <div v-if="!isFirebaseConfigured" class="firebase-warning">
+    <div class="flex items-start gap-3">
+      <i class="fa-solid fa-triangle-exclamation text-3xl text-amber-600"></i>
+      <div>
+        <h3 class="font-bold text-lg text-gray-900 mb-2">⚠️ Firebase 미설정</h3>
+        <p class="text-sm text-gray-700 mb-3">Firebase 설정이 필요합니다.<br/>HTML 파일을 열어 firebaseConfig를 입력하세요.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 로그인 화면 -->
+  <div v-if="!user" class="login-screen">
+    <div class="login-box">
+      <div class="mb-6">
+        <i class="fa-solid fa-school text-6xl text-indigo-600 mb-4"></i>
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2">{{ schoolName }}</h1>
+        <h2 class="text-xl font-bold text-gray-700">수업시간표</h2>
+      </div>
+      <p class="text-gray-600 mb-8">수업시간표를 확인하려면<br/>Google 계정으로 로그인해주세요.</p>
+      <button @click="login"
+              class="w-full bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-bold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-md hover:shadow-lg">
+        <i class="fa-brands fa-google text-xl"></i>
+        <span class="text-lg">Google 로그인</span>
+      </button>
+      <p class="mt-6 text-sm text-gray-500">학교 구성원만 접근 가능합니다</p>
+    </div>
+  </div>
+
+  <template v-else>
+
+    <!-- ── [FIX 3] 실시간 뱃지: 관리자/뷰어 구분 표시 ── -->
+    <div v-if="!isKioskMode" class="realtime-badge" :class="isAdminMode ? '' : 'viewer'">
+      <i class="fa-solid fa-circle-dot"></i>
+      <span>{{ isAdminMode ? '실시간 업데이트 (관리자)' : '실시간 수신 중' }}</span>
+    </div>
+
+    <!-- 비밀번호 입력 모달 -->
+    <div v-if="showPasswordModal" class="modal-overlay">
+      <div class="password-modal-content">
+        <div class="mb-5">
+          <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <i class="fa-solid fa-lock text-3xl text-indigo-600"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-gray-900">관리자 인증</h2>
+          <p class="text-gray-500 text-sm mt-1">비밀번호를 입력하세요</p>
+        </div>
+        <input ref="passwordInputRef" v-model="passwordInput"
+               type="password" maxlength="10"
+               class="password-input" :class="{ error: passwordError }"
+               placeholder="••••"
+               @keydown.enter="confirmPassword"
+               @keydown.esc="cancelPassword" />
+        <p v-if="passwordError" class="text-red-500 text-sm mt-2 font-semibold">
+          <i class="fa-solid fa-circle-exclamation"></i> 비밀번호가 올바르지 않습니다
+        </p>
+        <div class="flex gap-3 mt-5">
+          <button @click="confirmPassword" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition">
+            <i class="fa-solid fa-unlock"></i> 확인
+          </button>
+          <button @click="cancelPassword" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-lg transition">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사용설명서 -->
+    <div v-if="showManual" class="manual-overlay" @click.self="showManual = false">
+      <div class="manual-sidebar">
+        <div class="manual-header">
+          <div>
+            <h1 class="text-2xl font-bold flex items-center gap-2"><i class="fa-solid fa-book"></i> 사용설명서</h1>
+            <p class="text-sm opacity-90 mt-1">v3.1.0 | 2026-03-04</p>
+          </div>
+          <button @click="showManual = false" class="text-white hover:bg-white/20 rounded-full w-10 h-10 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-2xl"></i>
+          </button>
+        </div>
+        <div class="manual-body">
+          <h2>📘 구례중학교 수업시간표 시스템</h2>
+          <p><strong>제작:</strong> 교감 최광철 (AI 협업)</p>
+          <div class="manual-success">
+            <p><strong>🔄 v3.1 개선사항</strong></p>
+            <ul>
+              <li>✅ 키오스크 모드 과목명 셀 꽉 채움 (컨테이너 크기 기반)</li>
+              <li>✅ 관리자 입력 내용 즉시 화면 반영</li>
+              <li>✅ 링크 공유 시 실시간 확인 가능 (뷰어 모드)</li>
+            </ul>
+          </div>
+
+          <h2>1. 시작하기</h2>
+          <h3>1.1 접속 방법</h3>
+          <div class="manual-section">
+            <p><strong>웹 주소:</strong></p>
+            <code>https://angkw007-ui.github.io/timetable/</code>
+            <p class="mt-2"><strong>권장 브라우저:</strong> Chrome, Edge</p>
+          </div>
+          <h3>1.2 로그인</h3>
+          <ol>
+            <li>페이지를 열면 로그인 화면이 나타납니다</li>
+            <li><strong>"Google 로그인"</strong> 버튼을 클릭합니다</li>
+            <li>로그인이 완료되면 오늘의 시간표가 표시됩니다</li>
+          </ol>
+
+          <h2>2. 기본 사용법</h2>
+          <div class="manual-tip">
+            <p><strong>💡 실시간 수신</strong></p>
+            <p>관리자가 수정하면 링크를 공유받은 모든 사람의 화면에 1~2초 내에 자동으로 반영됩니다.</p>
+          </div>
+
+          <h2>3. 관리자 기능</h2>
+          <h3>3.1 관리자 모드 진입</h3>
+          <div class="manual-section">
+            <p>우측 상단 <strong>[관리자 모드]</strong> 버튼 클릭 → 비밀번호 입력</p>
+          </div>
+          <h3>3.2 시간표 편집</h3>
+          <ol>
+            <li>요일 선택 → 칸 클릭 → 과목명/교사명 입력</li>
+            <li>입력 내용은 <strong>즉시 화면에 반영</strong>됩니다</li>
+            <li>저장 버튼을 누르면 <strong>공유된 링크의 모든 화면</strong>에 반영됩니다</li>
+          </ol>
+
+          <h2>4. 색상 의미</h2>
+          <table class="manual-table">
+            <thead><tr><th>배경색</th><th>의미</th></tr></thead>
+            <tbody>
+              <tr><td style="background:#FEF3C7;">노란색</td><td>1학년</td></tr>
+              <tr><td style="background:#E0F2FE;">하늘색</td><td>2학년</td></tr>
+              <tr><td style="background:#FCE7F3;">핑크색</td><td>3학년</td></tr>
+              <tr><td style="background:#FEE2E2;border:2px solid #EF4444;">빨간색 테두리</td><td>기본시간표에서 변경됨</td></tr>
+            </tbody>
+          </table>
+
+          <div style="text-align:center;margin-top:3rem;padding-top:2rem;border-top:2px solid #e5e7eb;">
+            <p class="text-gray-600">© 2026 구례중학교</p>
+            <p class="text-gray-600 text-sm mt-1">제작: 교감 최광철 (AI 협업)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 전체화면 종료 버튼 -->
+    <button v-if="slideFullscreen" @click="toggleSlideFullscreen" class="fullscreen-exit-button">
+      <i class="fa-solid fa-xmark"></i>
+      <span>전체화면 종료</span>
+    </button>
+
+    <!-- 설정 모달 -->
+    <div v-if="showSettingsModal" class="modal-overlay" @click.self="showSettingsModal = false">
+      <div class="modal-content">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold">⚙️ 시스템 설정</h2>
+          <button @click="showSettingsModal = false" class="text-gray-500 hover:text-gray-700">
+            <i class="fa-solid fa-xmark text-2xl"></i>
+          </button>
+        </div>
+        <div class="space-y-6">
+          <div>
+            <label class="block font-bold mb-2">🏫 학교 이름</label>
+            <input v-model="tempSchoolName" type="text" class="w-full border-2 rounded px-4 py-3 text-lg" placeholder="예: 구례중학교" />
+          </div>
+          <div>
+            <label class="block font-bold mb-2">📚 학급 구성</label>
+            <div class="space-y-3">
+              <div v-for="grade in [1, 2, 3]" :key="grade" class="flex items-center gap-3">
+                <span class="w-20 font-semibold">{{ grade }}학년:</span>
+                <select v-model="tempClassCounts[grade]" class="border-2 rounded px-3 py-2 flex-1">
+                  <option :value="1">1개반</option>
+                  <option :value="2">2개반</option>
+                  <option :value="3">3개반</option>
+                  <option :value="4">4개반</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button @click="saveSettings" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded">
+              <i class="fa-solid fa-check"></i> 저장
+            </button>
+            <button @click="showSettingsModal = false" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 rounded">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 행사 모달 -->
+    <div v-if="showEventModal" class="modal-overlay" @click.self="showEventModal = false">
+      <div class="modal-content">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold">행사 관리</h2>
+          <button @click="showEventModal = false" class="text-gray-500 hover:text-gray-700">
+            <i class="fa-solid fa-xmark text-2xl"></i>
+          </button>
+        </div>
+        <div class="mb-4 p-4 bg-blue-50 rounded-lg">
+          <p class="text-sm text-gray-700 mb-2"><strong>등록된 행사:</strong></p>
+          <div v-if="Object.keys(events).length === 0" class="text-gray-500 text-sm">(등록된 행사 없음)</div>
+          <div v-else class="space-y-1 text-sm">
+            <div v-for="(evt, period) in events" :key="period" class="flex items-center justify-between">
+              <span>{{ period }}교시: {{ formatEventDisplay(evt) }}</span>
+              <button @click="deleteEvent(period)" class="text-red-600 hover:text-red-800 text-xs">
+                <i class="fa-solid fa-trash"></i> 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block font-bold mb-2">교시 선택</label>
+            <select v-model="eventForm.period" class="w-full border rounded px-3 py-2">
+              <option value="">선택하세요</option>
+              <option v-for="p in [1,2,3,4,5,6,7]" :key="p" :value="p">{{ p }}교시</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold mb-2">행사 범위</label>
+            <select v-model="eventForm.type" class="w-full border rounded px-3 py-2">
+              <option value="all">전체 (모든 학급)</option>
+              <option value="grade">학년별</option>
+              <option value="class">학급별</option>
+            </select>
+          </div>
+          <div v-if="eventForm.type === 'all'">
+            <label class="block font-bold mb-2">행사명</label>
+            <input v-model="eventForm.allName" type="text" class="w-full border rounded px-3 py-2" placeholder="예: 입학식, 졸업식" />
+          </div>
+          <div v-if="eventForm.type === 'grade'" class="space-y-2">
+            <label class="block font-bold mb-2">학년별 행사명</label>
+            <div v-for="g in [1,2,3]" :key="g" class="flex items-center gap-2">
+              <span class="w-20 font-semibold">{{ g }}학년:</span>
+              <input v-model="eventForm.gradeNames[g]" type="text" class="flex-1 border rounded px-3 py-2" placeholder="빈칸=일반수업" />
+            </div>
+          </div>
+          <div v-if="eventForm.type === 'class'" class="space-y-2">
+            <label class="block font-bold mb-2">학급별 행사명</label>
+            <div v-for="cls in classes" :key="cls" class="flex items-center gap-2">
+              <span class="w-24 font-semibold">{{ cls }}:</span>
+              <input v-model="eventForm.classNames[cls]" type="text" class="flex-1 border rounded px-3 py-2" placeholder="빈칸=일반수업" />
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button @click="saveEvent" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded">
+              <i class="fa-solid fa-check"></i> 저장
+            </button>
+            <button @click="showEventModal = false" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 rounded">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 슬라이드 영역 -->
+    <aside v-if="showSlides" class="h-full bg-black relative overflow-hidden" :style="slideAreaStyle">
+      <div v-if="slides.length" class="slide-container">
+        <template v-for="(s, idx) in slides" :key="idx">
+          <div v-show="idx === currentSlideIndex" class="absolute inset-0 fade">
+            <video v-if="s.type === 'video'"
+                   :ref="el => { if(el && idx === currentSlideIndex) playVideo(el) }"
+                   :class="slideFullscreen ? 'media-contain' : 'media-cover'"
+                   :src="s.url" autoplay muted loop playsinline></video>
+
+            <iframe v-else-if="s.type === 'gdrive-video'"
+                    class="gdrive-iframe" :src="s.previewUrl"
+                    title="Google Drive Video" allow="autoplay" allowfullscreen></iframe>
+
+            <div v-else-if="s.type === 'youtube-shorts'" class="youtube-shorts-wrapper">
+              <iframe :src="s.embedUrl" :id="'youtube-shorts-' + idx"
+                      title="YouTube Shorts"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            </div>
+
+            <iframe v-else-if="s.type === 'youtube'"
+                    class="youtube-iframe" :src="s.embedUrl" :id="'youtube-' + idx"
+                    title="YouTube"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+            <img v-else-if="s.type === 'gdrive-image'"
+                 :class="slideFullscreen ? 'media-contain' : 'media-cover'"
+                 :src="s.thumbnailUrl" alt="Google Drive Image" />
+
+            <img v-else
+                 :class="slideFullscreen ? 'media-contain' : 'media-cover'"
+                 :src="s.url" alt="slide" />
+          </div>
+        </template>
+      </div>
+
+      <div v-else class="w-full h-full flex items-center justify-center text-white/60 text-center p-6">
+        <div>
+          <div class="text-2xl font-bold mb-2">슬라이드가 없습니다</div>
+          <div class="text-sm">관리자 모드에서 URL을 추가하세요</div>
+        </div>
+      </div>
+
+      <!-- 관리자 슬라이드 관리 패널 -->
+      <div v-if="isAdminMode && !isKioskMode && !slideFullscreen"
+           class="absolute bottom-0 left-0 right-0 bg-black/80 text-white p-3 max-h-64 overflow-auto z-10">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-bold">슬라이드 관리 ({{ slides.length }})</div>
+          <button @click="addSlidePrompt" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-sm">
+            <i class="fa-solid fa-plus"></i> 추가
+          </button>
+        </div>
+        <div v-for="(s, idx) in slides" :key="'m'+idx"
+             class="flex items-center gap-2 bg-white/10 rounded px-2 py-1 mb-2">
+          <div class="flex-1 truncate text-xs">
+            <span class="font-bold">{{ s.type }}</span> |
+            <span class="opacity-75">{{ s.displayUrl || s.url.substring(0, 40) }}...</span>
+          </div>
+          <button class="px-2 py-1 hover:bg-white/10 rounded" @click="moveSlide(idx, -1)" title="위로"><i class="fa-solid fa-arrow-up"></i></button>
+          <button class="px-2 py-1 hover:bg-white/10 rounded" @click="moveSlide(idx, 1)" title="아래로"><i class="fa-solid fa-arrow-down"></i></button>
+          <button class="px-2 py-1 hover:bg-red-500/20 rounded text-red-200" @click="deleteSlide(idx)" title="삭제"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 메인 시간표 영역 -->
+    <main class="h-full flex-1 flex flex-col bg-white" :style="mainAreaStyle">
+
+      <header class="shrink-0 border-b bg-white px-4 py-3">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 text-center select-none">
+            <div class="font-extrabold tracking-tight" :class="isKioskMode ? 'text-4xl' : 'text-2xl'">
+              {{ todayDateStr }} ({{ todayDayLabel }}) {{ schoolName }} 수업시간표
+            </div>
+          </div>
+          <div class="shrink-0 flex gap-2">
+            <button v-if="!isKioskMode" @click="showManual = true"
+                    class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold">
+              <i class="fa-solid fa-book"></i> 사용설명서
+            </button>
+            <button @click="toggleKiosk"
+                    class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded font-bold">
+              <i class="fa-solid" :class="isKioskMode ? 'fa-compress' : 'fa-expand'"></i>
+              전체화면
+            </button>
+            <template v-if="!isKioskMode">
+              <button @click="toggleAdmin" class="px-4 py-2 rounded font-bold"
+                      :class="isAdminMode ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'">
+                <i class="fa-solid" :class="isAdminMode ? 'fa-lock-open' : 'fa-lock'"></i>
+                {{ isAdminMode ? '관리자 종료' : '관리자 모드' }}
+              </button>
+              <div class="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded">
+                <img v-if="user.photoURL" :src="user.photoURL" class="w-8 h-8 rounded-full" />
+                <i v-else class="fa-solid fa-user-circle text-2xl text-gray-600"></i>
+                <span class="text-sm font-semibold text-gray-700">{{ userName }}</span>
+              </div>
+              <button @click="logout" class="px-4 py-2 rounded font-bold bg-gray-200 hover:bg-gray-300">로그아웃</button>
+            </template>
+          </div>
+        </div>
+      </header>
+
+      <!-- 관리자 도구 패널 -->
+      <section v-if="isAdminMode && !isKioskMode" class="shrink-0 border-b bg-gray-50 px-4 py-3">
+        <div class="text-xs text-gray-500 mb-2 text-right">
+          It was produced by Choi Kwang-chul, vice principal, with the help of AI. "Student schedule guide ver3.1.0"
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="font-bold text-gray-700 mr-2"><i class="fa-solid fa-gear"></i> 관리자 도구</div>
+          <label class="text-sm text-gray-700 font-bold flex items-center gap-2">
+            편집 요일:
+            <select v-model="selectedDay" @change="loadDayData"
+                    class="border-2 border-blue-500 rounded px-3 py-2 bg-white font-bold text-base">
+              <option v-for="d in weekdays" :key="d" :value="d">{{ d }}요일</option>
+            </select>
+          </label>
+          <button @click="loadBaseToGrid" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded font-bold">
+            <i class="fa-solid fa-rotate-left"></i> 기본시간표 불러오기
+          </button>
+          <button @click="saveOverride" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded font-bold">
+            <i class="fa-solid fa-save"></i> 수업변경 저장
+          </button>
+          <button @click="openEventModal" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-bold">
+            <i class="fa-solid fa-calendar-days"></i> 행사 관리
+          </button>
+          <button @click="saveBase" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded font-bold">
+            <i class="fa-solid fa-floppy-disk"></i> 학기초 기본시간표 저장
+          </button>
+          <button @click="toggleSlides" class="px-4 py-2 rounded font-bold"
+                  :class="showSlides ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-900'">
+            <i class="fa-solid" :class="showSlides ? 'fa-eye' : 'fa-eye-slash'"></i>
+            슬라이드 {{ showSlides ? '켜짐' : '꺼짐' }}
+          </button>
+          <button @click="toggleSlideFullscreen" class="px-4 py-2 rounded font-bold"
+                  :class="slideFullscreen ? 'bg-cyan-600 text-white' : 'bg-gray-300 text-gray-900'">
+            <i class="fa-solid fa-tv"></i>
+            슬라이드 {{ slideFullscreen ? '전체화면' : '일반' }}
+          </button>
+          <button @click="openSettings" class="px-4 py-2 rounded font-bold bg-gray-600 hover:bg-gray-700 text-white">
+            <i class="fa-solid fa-cog"></i> 시스템 설정
+          </button>
+
+          <!-- ── [FIX 2] 미저장 변경사항 알림 ── -->
+          <div v-if="hasUnsavedChanges" class="ml-2 flex items-center gap-2 bg-amber-100 border border-amber-400 text-amber-800 px-3 py-2 rounded font-bold text-sm animate-pulse">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            미저장 변경사항 있음 — [수업변경 저장] 또는 [학기초 저장] 누르세요
+          </div>
+          <div class="ml-auto text-xs text-gray-500">현재: {{ selectedDay }}요일 편집중</div>
+        </div>
+      </section>
+
+      <!-- 시간표 테이블 -->
+      <section class="flex-1 min-h-0"
+               :class="(isAdminMode && !isKioskMode) ? 'scroll-area p-4' : (isKioskMode ? 'overflow-hidden p-2 h-full' : 'overflow-hidden p-4 h-full')">
+
+        <div class="w-full border-2 border-gray-300 rounded-lg overflow-hidden bg-white"
+             :class="(isAdminMode && !isKioskMode) ? '' : 'h-full'">
+
+          <table class="w-full table-fixed border-collapse" :class="(isAdminMode && !isKioskMode) ? '' : 'h-full'">
+            <thead>
+            <tr>
+              <th class="border border-gray-300 w-28 bg-green-100"
+                  :class="isKioskMode ? 'text-2xl py-4' : 'text-lg py-3'">교시</th>
+              <th v-for="cls in classes" :key="cls"
+                  class="border border-gray-300 font-extrabold"
+                  :class="[isKioskMode ? 'text-2xl py-4' : 'text-lg py-3', colHeaderBg(cls)]">
+                {{ classLabel(cls) }}
+              </th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <template v-for="row in tableRows" :key="row.key">
+
+              <tr v-if="row.type==='lunch'" class="bg-amber-50" :style="rowStyle(row)">
+                <td class="border border-gray-300 bg-green-100">
+                  <div class="w-full h-full flex items-center justify-center font-extrabold"
+                       :class="isKioskMode ? 'text-2xl' : 'text-lg'">점심</div>
+                </td>
+                <td :colspan="classes.length" class="border border-gray-300">
+                  <div class="w-full h-full flex items-center justify-center font-extrabold text-gray-800"
+                       :class="isKioskMode ? 'text-3xl' : 'text-xl'">점심시간</div>
+                </td>
+              </tr>
+
+              <tr v-else :style="rowStyle(row)">
+                <td class="border border-gray-300 bg-green-100">
+                  <div class="w-full h-full flex items-center justify-center"
+                       :class="isKioskMode ? 'text-4xl font-extrabold' : 'text-xl font-bold'">
+                    {{ row.period }}교시
+                  </div>
+                </td>
+
+                <template v-for="(group, gIdx) in getEventGroups(row.period)" :key="'g'+gIdx">
+                  <td v-if="group.isEvent"
+                      :colspan="group.classes.length"
+                      :class="['border border-gray-300', getEventCellBgClass(row.period, group)]">
+                    <div class="w-full h-full flex items-center justify-center text-center font-extrabold text-purple-900 cell-text"
+                         :class="isKioskMode ? 'text-3xl' : 'text-xl'">
+                      {{ group.eventName }}
+                    </div>
+                  </td>
+
+                  <td v-else v-for="cls in group.classes" :key="cls"
+                      class="border border-gray-300 p-0"
+                      :class="[colBodyBg(cls), getCellBgClass(row.period, cls)]">
+
+                    <!-- 관리자 편집 모드 -->
+                    <div v-if="isAdminMode && !isKioskMode" class="cell-editor-wrap">
+                      <input class="cell-editor-input font-extrabold text-lg text-blue-900"
+                             :data-period="row.period" :data-class="cls" data-part="subject"
+                             :value="getSubject(grid[row.period] && grid[row.period][cls])"
+                             @input="(e) => onSubjectInput(row.period, cls, e.target.value)"
+                             @keydown.enter.prevent="handleEnter(row.period, cls, 'subject')"
+                             placeholder="과목명" />
+                      <div class="cell-divider"></div>
+                      <input class="cell-editor-input font-semibold text-sm text-gray-700"
+                             :data-period="row.period" :data-class="cls" data-part="teacher"
+                             :value="getTeacher(grid[row.period] && grid[row.period][cls])"
+                             @input="(e) => onTeacherInput(row.period, cls, e.target.value)"
+                             @keydown.enter.prevent="handleEnter(row.period, cls, 'teacher')"
+                             placeholder="교사명" />
+                    </div>
+
+                    <!-- ── [FIX 1] 키오스크/일반 보기 모드: 컨테이너 크기 기반 폰트 ── -->
+                    <div v-else class="kiosk-cell">
+                      <div class="kiosk-subject" :style="!isKioskMode ? 'font-size:1.1rem;' : ''">
+                        {{ getSubject(grid[row.period] && grid[row.period][cls]) }}
+                      </div>
+                      <div class="kiosk-divider"></div>
+                      <div class="kiosk-teacher" :style="!isKioskMode ? 'font-size:0.85rem;' : ''">
+                        {{ getTeacher(grid[row.period] && grid[row.period][cls]) }}
+                      </div>
+                    </div>
+
+                  </td>
+                </template>
+              </tr>
+            </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </template>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAiij8Jnb3AmPNAkzsPQUfLQnvmyx9UP6c",
+    authDomain: "classes-51b3d.firebaseapp.com",
+    projectId: "classes-51b3d",
+    storageBucket: "classes-51b3d.firebasestorage.app",
+    messagingSenderId: "850176624202",
+    appId: "1:850176624202:web:6c4efb6de34c94b26d88b3"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fbApp);
+  const auth = getAuth(fbApp);
+  const provider = new GoogleAuthProvider();
+
+  const ADMIN_PASSWORD = '2376';
+
+  const { createApp, ref, computed, onMounted, nextTick, watch, onUnmounted } = Vue;
+
+  createApp({
+    setup() {
+      const weekdays = ['월','화','수','목','금'];
+      const configRef = doc(db, "school", "config");
+
+      const user = ref(null);
+      const isAdminMode = ref(false);
+      const isKioskMode = ref(false);
+      const showSlides = ref(true);
+      const slideFullscreen = ref(false);
+      const showManual = ref(false);
+
+      const showPasswordModal = ref(false);
+      const passwordInput = ref('');
+      const passwordError = ref(false);
+      const passwordInputRef = ref(null);
+
+      const schoolName = ref('구례중학교');
+      const classCounts = ref({ 1: 2, 2: 2, 3: 2 });
+
+      const showSettingsModal = ref(false);
+      const tempSchoolName = ref('');
+      const tempClassCounts = ref({ 1: 2, 2: 2, 3: 2 });
+
+      // ── [FIX 2] 미저장 변경 추적 ──
+      const hasUnsavedChanges = ref(false);
+
+      const classes = computed(() => {
+        const result = [];
+        for (let grade = 1; grade <= 3; grade++) {
+          const count = classCounts.value[grade] || 2;
+          for (let classNum = 1; classNum <= count; classNum++) {
+            result.push(`${grade}-${classNum}`);
+          }
+        }
+        return result;
+      });
+
+      const slideAreaStyle = computed(() => {
+        if (slideFullscreen.value) return { width: '100%' };
+        return { width: isKioskMode.value ? '20%' : '24%' };
+      });
+
+      const mainAreaStyle = computed(() => {
+        if (slideFullscreen.value) return { display: 'none' };
+        return {};
+      });
+
+      const isFirebaseConfigured = computed(() => {
+        return firebaseConfig.apiKey &&
+               firebaseConfig.projectId &&
+               !firebaseConfig.apiKey.includes('YOUR_') &&
+               !firebaseConfig.projectId.includes('YOUR_');
+      });
+
+      const today = new Date();
+      const todayDateStr = computed(() => {
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      });
+      const todayDayLabel = computed(() => {
+        const dayNames = ['일','월','화','수','목','금','토'];
+        return dayNames[today.getDay()];
+      });
+
+      const selectedDay = ref(weekdays.includes(todayDayLabel.value) ? todayDayLabel.value : '월');
+
+      const slides = ref([]);
+      const currentSlideIndex = ref(0);
+      const slideTimer = ref(null);
+
+      const base = ref({});
+      const baseEvents = ref({});
+      const overrides = ref({});
+      const events = ref({});
+      const grid = ref({});
+
+      // ── [FIX 2] 외부(Firestore)에서 받은 가장 최근 서버 데이터
+      // 관리자가 편집 중일 때 서버 스냅샷으로 덮어쓰지 않기 위한 플래그
+      const isEditing = ref(false);
+      let editingTimer = null;
+
+      const showEventModal = ref(false);
+      const eventForm = ref({
+        period: '',
+        type: 'all',
+        allName: '',
+        gradeNames: { 1: '', 2: '', 3: '' },
+        classNames: {}
+      });
+
+      let unsubscribeTimetable = null;
+
+      const userName = computed(() => {
+        if (!user.value) return '';
+        return user.value.displayName || user.value.email || '사용자';
+      });
+
+      function makeEmptyTimetable() {
+        const t = {};
+        for (let p = 1; p <= 7; p++) {
+          t[p] = {};
+          for (const c of classes.value) t[p][c] = '';
+        }
+        return t;
+      }
+
+      // ── 비밀번호 모달 ──
+      function toggleAdmin() {
+        if (isAdminMode.value) {
+          isAdminMode.value = false;
+          hasUnsavedChanges.value = false;
+        } else {
+          passwordInput.value = '';
+          passwordError.value = false;
+          showPasswordModal.value = true;
+          nextTick(() => { passwordInputRef.value?.focus(); });
+        }
+      }
+
+      function confirmPassword() {
+        if (passwordInput.value === ADMIN_PASSWORD) {
+          showPasswordModal.value = false;
+          passwordInput.value = '';
+          passwordError.value = false;
+          isAdminMode.value = true;
+        } else {
+          passwordError.value = true;
+          passwordInput.value = '';
+          nextTick(() => { passwordInputRef.value?.focus(); });
+          setTimeout(() => { passwordError.value = false; }, 1500);
+        }
+      }
+
+      function cancelPassword() {
+        showPasswordModal.value = false;
+        passwordInput.value = '';
+        passwordError.value = false;
+      }
+
+      function handleEscKey(event) {
+        if (event.key === 'Escape') {
+          if (showPasswordModal.value) cancelPassword();
+          else if (slideFullscreen.value) slideFullscreen.value = false;
+          else if (showManual.value) showManual.value = false;
+        }
+      }
+
+      function toggleSlides() {
+        showSlides.value = !showSlides.value;
+        if (slideFullscreen.value && !showSlides.value) slideFullscreen.value = false;
+      }
+
+      function toggleSlideFullscreen() {
+        slideFullscreen.value = !slideFullscreen.value;
+        if (slideFullscreen.value) showSlides.value = true;
+      }
+
+      function openSettings() {
+        tempSchoolName.value = schoolName.value;
+        tempClassCounts.value = { ...classCounts.value };
+        showSettingsModal.value = true;
+      }
+
+      async function saveSettings() {
+        schoolName.value = tempSchoolName.value || '구례중학교';
+        classCounts.value = { ...tempClassCounts.value };
+        try {
+          await setDoc(configRef, {
+            schoolName: schoolName.value,
+            classCounts: classCounts.value,
+            slides: slides.value
+          }, { merge: true });
+          showSettingsModal.value = false;
+          alert('✅ 설정이 저장되었습니다!\n시간표를 다시 입력해주세요.');
+          grid.value = makeEmptyTimetable();
+          await loadDayData();
+        } catch (error) {
+          alert('설정 저장 실패: ' + error.message);
+        }
+      }
+
+      watch(showSlides, (newValue) => {
+        if (newValue) startSlideTimer();
+        else {
+          if (slideTimer.value) { clearTimeout(slideTimer.value); slideTimer.value = null; }
+        }
+      });
+
+      function playVideo(videoEl) {
+        if (!videoEl) return;
+        videoEl.play().catch(() => {});
+      }
+
+      function classLabel(cls) {
+        const [g, b] = String(cls).split('-');
+        return `${g}학년 ${b}반`;
+      }
+
+      function gradeFromClass(cls) {
+        return Number(String(cls).split('-')[0]);
+      }
+
+      function colHeaderBg(cls) {
+        const g = gradeFromClass(cls);
+        if (g === 1) return 'bg-yellow-100';
+        if (g === 2) return 'bg-sky-100';
+        return 'bg-pink-100';
+      }
+
+      function colBodyBg(cls) {
+        const g = gradeFromClass(cls);
+        if (g === 1) return 'bg-yellow-50';
+        if (g === 2) return 'bg-sky-50';
+        return 'bg-pink-50';
+      }
+
+      function getCellBgClass(period, cls) {
+        if (isOverrideCell(period, cls)) return 'bg-red-100 ring-2 ring-red-300';
+        return '';
+      }
+
+      function getEventCellBgClass(period, group) {
+        const baseEvt = baseEvents.value[String(period)];
+        const currEvt = events.value[String(period)];
+        if (JSON.stringify(baseEvt) !== JSON.stringify(currEvt)) {
+          return 'bg-red-100 ring-2 ring-red-300';
+        }
+        return 'bg-purple-50';
+      }
+
+      function getEventGroups(period) {
+        const evt = events.value[String(period)];
+        if (!evt) return [{ isEvent: false, classes: classes.value }];
+
+        const groups = [];
+        if (evt.type === 'all') {
+          groups.push({ isEvent: true, eventName: evt.name, classes: classes.value });
+        } else if (evt.type === 'grade') {
+          for (let g = 1; g <= 3; g++) {
+            const gradeName = evt.data[g];
+            const gradeClasses = classes.value.filter(c => gradeFromClass(c) === g);
+            if (gradeName) groups.push({ isEvent: true, eventName: gradeName, classes: gradeClasses });
+            else groups.push({ isEvent: false, classes: gradeClasses });
+          }
+        } else if (evt.type === 'class') {
+          const eventMap = {};
+          const normalClasses = [];
+          for (const cls of classes.value) {
+            if (evt.data[cls]) {
+              if (!eventMap[evt.data[cls]]) eventMap[evt.data[cls]] = [];
+              eventMap[evt.data[cls]].push(cls);
+            } else {
+              normalClasses.push(cls);
+            }
+          }
+          for (const [name, clsList] of Object.entries(eventMap)) {
+            groups.push({ isEvent: true, eventName: name, classes: clsList });
+          }
+          if (normalClasses.length > 0) groups.push({ isEvent: false, classes: normalClasses });
+        }
+
+        return groups.length > 0 ? groups : [{ isEvent: false, classes: classes.value }];
+      }
+
+      function formatEventDisplay(evt) {
+        if (evt.type === 'all') return `전체 - ${evt.name}`;
+        else if (evt.type === 'grade') {
+          const parts = [];
+          for (const [g, name] of Object.entries(evt.data)) {
+            if (name) parts.push(`${g}학년(${name})`);
+          }
+          return parts.join(', ') || '(없음)';
+        } else if (evt.type === 'class') {
+          const parts = [];
+          for (const [cls, name] of Object.entries(evt.data)) {
+            if (name) parts.push(`${cls}(${name})`);
+          }
+          return parts.join(', ') || '(없음)';
+        }
+        return '';
+      }
+
+      const periodCount = computed(() => 7);
+      const lunchHeightPct = computed(() => (isKioskMode.value ? 5 : 6));
+      const periodHeightPct = computed(() => (100 - lunchHeightPct.value) / periodCount.value);
+
+      const tableRows = computed(() => {
+        const rows = [];
+        for (let p = 1; p <= 7; p++) {
+          rows.push({ type: 'period', period: p, key: 'p'+p });
+          if (p === 4) rows.push({ type: 'lunch', key: 'lunch' });
+        }
+        return rows;
+      });
+
+      function rowStyle(row) {
+        if (row.type === 'lunch') return { height: lunchHeightPct.value + '%' };
+        return { height: periodHeightPct.value + '%' };
+      }
+
+      function parseCell(v) {
+        const s = String(v || '');
+        if (!s.trim()) return { subject: '', teacher: '' };
+        if (s.includes('\n')) {
+          const parts = s.split('\n');
+          return { subject: (parts[0]||'').trim(), teacher: parts.slice(1).join(' ').trim() };
+        }
+        return { subject: s.trim(), teacher: '' };
+      }
+
+      function getSubject(v) { return parseCell(v).subject; }
+      function getTeacher(v) { return parseCell(v).teacher; }
+
+      function setCell(p, cls, subject, teacher) {
+        const s = String(subject||'').trim();
+        const t = String(teacher||'').trim();
+        if (!grid.value[p]) grid.value[p] = {};
+        grid.value[p][cls] = t ? `${s}\n${t}` : s;
+      }
+
+      // ── [FIX 2] 관리자 입력 즉시 반영 ──
+      // input 이벤트마다 grid를 즉시 업데이트 + 편집 중 플래그 설정
+      function onSubjectInput(period, cls, value) {
+        markEditing();
+        const cur = parseCell(grid.value[period]?.[cls] || '');
+        setCell(period, cls, value, cur.teacher);
+        hasUnsavedChanges.value = true;
+      }
+
+      function onTeacherInput(period, cls, value) {
+        markEditing();
+        const cur = parseCell(grid.value[period]?.[cls] || '');
+        setCell(period, cls, cur.subject, value);
+        hasUnsavedChanges.value = true;
+      }
+
+      // 편집 중 플래그: 마지막 입력 후 3초간 서버 스냅샷 무시
+      function markEditing() {
+        isEditing.value = true;
+        if (editingTimer) clearTimeout(editingTimer);
+        editingTimer = setTimeout(() => { isEditing.value = false; }, 3000);
+      }
+
+      function keyOf(p, cls) { return `${p}|${cls}`; }
+
+      function normalizeCell(v) {
+        return String(v||'').trim().replace(/\r\n/g, '\n');
+      }
+
+      function mergeBaseAndOverrides(baseTT, ov) {
+        const merged = {};
+        for (let p = 1; p <= 7; p++) {
+          merged[p] = {};
+          for (const c of classes.value) {
+            const k = keyOf(p, c);
+            merged[p][c] = ov[k] !== undefined ? ov[k] : (baseTT[p]?.[c] || '');
+          }
+        }
+        return merged;
+      }
+
+      function isOverrideCell(p, cls) {
+        return overrides.value[keyOf(p, cls)] !== undefined;
+      }
+
+      async function handleEnter(period, cls, part) {
+        if (part === 'subject') {
+          await nextTick();
+          focusField(period, cls, 'teacher');
+          return;
+        }
+        const vPeriods = [1,2,3,4,5,6,7];
+        const p = Number(period);
+        const pIdx = vPeriods.indexOf(p);
+        const cIdx = classes.value.indexOf(cls);
+        if (pIdx === -1 || cIdx === -1) return;
+
+        const nextPeriod = vPeriods[pIdx + 1];
+        if (nextPeriod != null) {
+          await nextTick();
+          focusField(nextPeriod, cls, 'subject');
+          return;
+        }
+        const nextClass = classes.value[cIdx + 1] || classes.value[0];
+        const firstPeriod = vPeriods[0];
+        await nextTick();
+        focusField(firstPeriod, nextClass, 'subject');
+      }
+
+      function focusField(period, cls, part) {
+        const el = document.querySelector(
+          `[data-period="${period}"][data-class="${cls}"][data-part="${part}"]`
+        );
+        if (el) { el.focus(); el.select?.(); }
+      }
+
+      // Google Drive / YouTube 변환
+      function convertGoogleDriveUrl(url) {
+        try {
+          let fileId = '';
+          if (url.includes('drive.google.com/file/d/')) {
+            const parts = url.split('drive.google.com/file/d/')[1];
+            if (parts) fileId = parts.split('/')[0].split('?')[0];
+          } else if (url.includes('drive.google.com/open?id=')) {
+            const parts = url.split('id=')[1];
+            if (parts) fileId = parts.split('&')[0];
+          }
+          if (fileId) {
+            return {
+              isGoogleDrive: true,
+              fileId,
+              thumbnailUrl: `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,
+              previewUrl: `https://drive.google.com/file/d/${fileId}/preview`,
+              displayUrl: `구글드라이브: ${fileId.substring(0, 12)}...`,
+              originalUrl: url
+            };
+          }
+        } catch(e) {}
+        return null;
+      }
+
+      function toYoutubeEmbed(url) {
+        try {
+          const u = new URL(url);
+          let id = '';
+          let isShorts = false;
+          if (u.pathname.includes('/shorts/')) {
+            const parts = u.pathname.split('/shorts/')[1];
+            if (parts) { id = parts.split('?')[0].split('/')[0]; isShorts = true; }
+          } else if (u.hostname.includes('youtu.be')) {
+            id = u.pathname.replace('/', '').split('?')[0];
+          } else if (u.hostname.includes('youtube.com')) {
+            id = u.searchParams.get('v') || '';
+          }
+          if (!id) return null;
+          if (isShorts) {
+            return {
+              embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&mute=0&loop=1&playlist=${id}&playsinline=1&controls=0&modestbranding=1&rel=0&fs=0&iv_load_policy=3&disablekb=1`,
+              isShorts: true
+            };
+          } else {
+            return {
+              embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&playsinline=1&rel=0&modestbranding=1`,
+              isShorts: false
+            };
+          }
+        } catch(e) { return null; }
+      }
+
+      async function setSlidesOnly() {
+        try {
+          await setDoc(configRef, {
+            schoolName: schoolName.value,
+            classCounts: classCounts.value,
+            slides: slides.value
+          }, { merge: true });
+        } catch (error) {
+          alert('슬라이드 저장 실패: ' + error.message);
+        }
+      }
+
+      function addSlidePrompt() {
+        const url = prompt("🎬 미디어 URL 입력:\n\n지원 형식:\n• 유튜브: youtube.com/watch?v=xxxxx\n• 숏츠: youtube.com/shorts/xxxxx\n• 구글 드라이브: drive.google.com/file/d/xxxxx\n• 직접 링크: example.com/video.mp4\n\nURL을 입력하세요:");
+        if (!url) return;
+        let slide = { url, type: 'img' };
+        const gDrive = convertGoogleDriveUrl(url);
+        if (gDrive) {
+          slide = {
+            url: gDrive.originalUrl, fileId: gDrive.fileId,
+            thumbnailUrl: gDrive.thumbnailUrl, previewUrl: gDrive.previewUrl,
+            displayUrl: gDrive.displayUrl, type: 'gdrive-image'
+          };
+          const mediaType = prompt("📁 구글 드라이브 파일 타입:\n\n1 = 이미지\n2 = 비디오", "1");
+          if (mediaType === "2") slide.type = 'gdrive-video';
+        } else {
+          const ytResult = toYoutubeEmbed(url);
+          if (ytResult) {
+            slide.type = ytResult.isShorts ? 'youtube-shorts' : 'youtube';
+            slide.embedUrl = ytResult.embedUrl;
+          } else {
+            const lowerUrl = url.toLowerCase();
+            if (lowerUrl.includes('.mp4') || lowerUrl.includes('.webm') ||
+                lowerUrl.includes('.ogg') || lowerUrl.includes('.mov') ||
+                lowerUrl.includes('.avi')) {
+              slide.type = 'video';
+            }
+          }
+        }
+        slides.value = [...slides.value, slide];
+        setSlidesOnly();
+      }
+
+      function deleteSlide(idx) {
+        if (!confirm("이 슬라이드를 삭제할까요?")) return;
+        const ns = slides.value.filter((_, i) => i !== idx);
+        slides.value = ns;
+        if (currentSlideIndex.value >= ns.length) currentSlideIndex.value = 0;
+        setSlidesOnly();
+      }
+
+      function moveSlide(idx, dir) {
+        const ni = idx + dir;
+        if (ni < 0 || ni >= slides.value.length) return;
+        const ns = [...slides.value];
+        [ns[idx], ns[ni]] = [ns[ni], ns[idx]];
+        slides.value = ns;
+        setSlidesOnly();
+      }
+
+      function getSlideDuration(slide) {
+        if (!slide) return 8000;
+        switch(slide.type) {
+          case 'youtube-shorts': return 120000;
+          case 'youtube':        return 15000;
+          case 'gdrive-video':
+          case 'video':          return 30000;
+          default:               return 8000;
+        }
+      }
+
+      function startSlideTimer() {
+        if (slideTimer.value) clearTimeout(slideTimer.value);
+        if (slides.value.length === 0 || !showSlides.value) return;
+        const currentSlide = slides.value[currentSlideIndex.value];
+        const duration = getSlideDuration(currentSlide);
+        slideTimer.value = setTimeout(() => {
+          currentSlideIndex.value = (currentSlideIndex.value + 1) % slides.value.length;
+          nextTick(() => {
+            document.querySelectorAll('video').forEach(v => {
+              if (v.offsetParent !== null) v.play().catch(() => {});
+            });
+          });
+          startSlideTimer();
+        }, duration);
+      }
+
+      // ── [FIX 3] loadDayData: 뷰어도 실시간 onSnapshot 구독
+      // 관리자가 편집 중일 때는 서버 데이터로 grid를 덮어쓰지 않음
+      function loadDayData() {
+        const day = selectedDay.value;
+        if (unsubscribeTimetable) unsubscribeTimetable();
+
+        try {
+          const dayRef = doc(db, "timetables", day);
+          unsubscribeTimetable = onSnapshot(dayRef, (snap) => {
+            if (!snap.exists()) {
+              base.value = makeEmptyTimetable();
+              baseEvents.value = {};
+              overrides.value = {};
+              events.value = {};
+              if (!isEditing.value) grid.value = makeEmptyTimetable();
+              return;
+            }
+            const d = snap.data();
+            base.value = d.base || makeEmptyTimetable();
+            baseEvents.value = d.baseEvents || {};
+            overrides.value = d.overrides || {};
+            events.value = d.events || d.baseEvents || {};
+
+            // [FIX 2+3] 관리자가 입력 중이면 서버 덮어쓰기 방지
+            // 뷰어(비관리자)는 항상 서버 데이터를 표시
+            if (!isEditing.value) {
+              grid.value = mergeBaseAndOverrides(base.value, overrides.value);
+            }
+          }, (error) => {
+            console.error('실시간 업데이트 오류:', error);
+          });
+        } catch (error) {
+          alert('데이터 로드 실패: ' + error.message);
+        }
+      }
+
+      async function saveBase() {
+        const day = selectedDay.value;
+        if (!confirm(`${day}요일을 '학기초 기본시간표'로 저장할까요?`)) return;
+        try {
+          const dayRef = doc(db, "timetables", day);
+          await setDoc(dayRef, {
+            base: JSON.parse(JSON.stringify(grid.value)),
+            baseEvents: JSON.parse(JSON.stringify(events.value)),
+            overrides: {},
+            events: JSON.parse(JSON.stringify(events.value)),
+            updatedAt: Date.now()
+          });
+          hasUnsavedChanges.value = false;
+          alert(`✅ ${day}요일 기본시간표 저장완료\n\n🔄 모든 컴퓨터에 자동으로 반영됩니다!`);
+        } catch (error) {
+          alert('저장 실패: ' + error.message);
+        }
+      }
+
+      async function loadBaseToGrid() {
+        grid.value = JSON.parse(JSON.stringify(base.value));
+        events.value = JSON.parse(JSON.stringify(baseEvents.value));
+        overrides.value = {};
+        hasUnsavedChanges.value = false;
+        alert('✅ 기본시간표를 불러왔습니다.');
+      }
+
+      async function saveOverride() {
+        const day = selectedDay.value;
+        const newOverrides = {};
+        for (let p = 1; p <= 7; p++) {
+          for (const cls of classes.value) {
+            const cur = normalizeCell(grid.value[p]?.[cls] || '');
+            const b = normalizeCell(base.value[p]?.[cls] || '');
+            if (cur !== b) newOverrides[keyOf(p, cls)] = grid.value[p][cls] || '';
+          }
+        }
+        try {
+          const dayRef = doc(db, "timetables", day);
+          await setDoc(dayRef, {
+            overrides: newOverrides,
+            events: JSON.parse(JSON.stringify(events.value)),
+            updatedAt: Date.now()
+          }, { merge: true });
+          hasUnsavedChanges.value = false;
+          alert(`✅ 수업변경 저장완료\n\n🔄 모든 컴퓨터에 1~2초 내에 자동 반영됩니다!`);
+        } catch (error) {
+          alert('저장 실패: ' + error.message);
+        }
+      }
+
+      function openEventModal() {
+        eventForm.value = {
+          period: '', type: 'all', allName: '',
+          gradeNames: { 1: '', 2: '', 3: '' }, classNames: {}
+        };
+        for (const cls of classes.value) eventForm.value.classNames[cls] = '';
+        showEventModal.value = true;
+      }
+
+      async function saveEvent() {
+        const p = eventForm.value.period;
+        if (!p) { alert('교시를 선택하세요.'); return; }
+        const newEvent = { type: eventForm.value.type };
+        if (eventForm.value.type === 'all') {
+          if (!eventForm.value.allName.trim()) { alert('행사명을 입력하세요.'); return; }
+          newEvent.name = eventForm.value.allName.trim();
+        } else if (eventForm.value.type === 'grade') {
+          newEvent.data = {};
+          for (const [g, name] of Object.entries(eventForm.value.gradeNames)) {
+            if (name.trim()) newEvent.data[g] = name.trim();
+          }
+          if (Object.keys(newEvent.data).length === 0) { alert('최소 1개 학년의 행사명을 입력하세요.'); return; }
+        } else if (eventForm.value.type === 'class') {
+          newEvent.data = {};
+          for (const [cls, name] of Object.entries(eventForm.value.classNames)) {
+            if (name.trim()) newEvent.data[cls] = name.trim();
+          }
+          if (Object.keys(newEvent.data).length === 0) { alert('최소 1개 학급의 행사명을 입력하세요.'); return; }
+        }
+        events.value[p] = newEvent;
+        hasUnsavedChanges.value = true;
+        showEventModal.value = false;
+        alert(`✅ ${p}교시 행사가 등록되었습니다.\n저장하려면 [수업변경 저장] 또는 [학기초 저장]을 누르세요.`);
+      }
+
+      function deleteEvent(period) {
+        if (confirm(`${period}교시 행사를 삭제할까요?`)) {
+          delete events.value[period];
+          hasUnsavedChanges.value = true;
+        }
+      }
+
+      async function login() {
+        try { await signInWithPopup(auth, provider); }
+        catch (error) { alert("로그인 실패: " + error.message); }
+      }
+
+      async function logout() {
+        if (confirm("로그아웃 하시겠습니까?")) {
+          await signOut(auth);
+          isAdminMode.value = false;
+        }
+      }
+
+      async function toggleKiosk() {
+        isKioskMode.value = !isKioskMode.value;
+        try {
+          if (isKioskMode.value) {
+            if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+          } else {
+            if (document.fullscreenElement) await document.exitFullscreen();
+          }
+        } catch(e) {}
+      }
+
+      onMounted(async () => {
+        document.addEventListener('keydown', handleEscKey);
+        onAuthStateChanged(auth, async (u) => {
+          user.value = u;
+          if (!u) { isAdminMode.value = false; return; }
+          try {
+            onSnapshot(configRef, (snap) => {
+              if (snap.exists()) {
+                const d = snap.data();
+                if (d.schoolName) schoolName.value = d.schoolName;
+                if (d.classCounts) classCounts.value = d.classCounts;
+                if (Array.isArray(d.slides)) slides.value = d.slides;
+              }
+            });
+          } catch(error) {}
+          loadDayData();
+          startSlideTimer();
+        });
+      });
+
+      onUnmounted(() => {
+        if (unsubscribeTimetable) unsubscribeTimetable();
+        document.removeEventListener('keydown', handleEscKey);
+      });
+
+      return {
+        todayDateStr, todayDayLabel,
+        user, userName, isAdminMode, isKioskMode,
+        isFirebaseConfigured,
+        login, logout, toggleAdmin, toggleKiosk,
+        showPasswordModal, passwordInput, passwordError, passwordInputRef,
+        confirmPassword, cancelPassword,
+        weekdays, selectedDay,
+        slides, currentSlideIndex,
+        showSlides, toggleSlides,
+        slideFullscreen, toggleSlideFullscreen,
+        slideAreaStyle, mainAreaStyle,
+        addSlidePrompt, deleteSlide, moveSlide,
+        playVideo,
+        schoolName, classCounts,
+        showSettingsModal, tempSchoolName, tempClassCounts,
+        openSettings, saveSettings,
+        classes, classLabel,
+        colHeaderBg, colBodyBg,
+        tableRows, rowStyle,
+        getEventGroups,
+        grid,
+        getSubject, getTeacher,
+        onSubjectInput, onTeacherInput,  // [FIX 2]
+        isOverrideCell,
+        getCellBgClass,
+        getEventCellBgClass,
+        handleEnter,
+        loadDayData,
+        saveBase,
+        loadBaseToGrid,
+        saveOverride,
+        showEventModal,
+        openEventModal,
+        eventForm,
+        saveEvent,
+        deleteEvent,
+        formatEventDisplay,
+        events,
+        showManual,
+        hasUnsavedChanges,  // [FIX 2]
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
